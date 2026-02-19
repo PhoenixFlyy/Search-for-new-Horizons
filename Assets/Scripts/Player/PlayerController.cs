@@ -2,15 +2,18 @@
 using UnityEngine.InputSystem;
 
 public class PlayerController : MonoBehaviour {
-    [SerializeField] private LayerMask _groundMask;
-    [SerializeField] private Transform _groundCheck;
-    [SerializeField] private Transform _cam; // Drag MainCamera here
-    [SerializeField] private Animator _animator;
+    private static readonly int IsJumping = Animator.StringToHash("isJumping");
+    private static readonly int IsRunning = Animator.StringToHash("isRunning");
+    [SerializeField] private LayerMask groundMask;
+    [SerializeField] private Transform groundCheck;
+    [SerializeField] private Transform cam;
+    [SerializeField] private Transform visualMesh;
+    [SerializeField] private Animator animator;
 
-    private float _groundCheckRadius = 0.3f;
-    private float _speed = 8f;
-    private float _jumpForce = 8f;
-    private float _rotationSpeed = 10f;
+    private const float GroundCheckRadius = 0.3f;
+    private const float Speed = 8f;
+    private const float JumpForce = 8f;
+    private const float VisualRotationSpeed = 10f;
 
     private Rigidbody _rigidbody;
     private GravityBody _gravityBody;
@@ -19,63 +22,53 @@ public class PlayerController : MonoBehaviour {
     private Vector2 _moveInput;
     private bool _jumpRequested;
 
-    void Awake() {
-        _inputActions = new PlayerInputActions();
-    }
+    private void Awake() => _inputActions = new PlayerInputActions();
 
-    void OnEnable() {
+    private void OnEnable() {
         _inputActions.Enable();
         _inputActions.PlayerActionmap.Jump.performed += OnJumpPerformed;
     }
 
-    void OnDisable() {
+    private void OnDisable() {
         _inputActions.PlayerActionmap.Jump.performed -= OnJumpPerformed;
         _inputActions.Disable();
     }
 
-    void Start() {
+    private void Start() {
         _rigidbody = GetComponent<Rigidbody>();
         _gravityBody = GetComponent<GravityBody>();
     }
 
-    void OnJumpPerformed(InputAction.CallbackContext context) {
-        if (Physics.CheckSphere(_groundCheck.position, _groundCheckRadius, _groundMask))
-            _jumpRequested = true;
+    private void OnJumpPerformed(InputAction.CallbackContext context) {
+        if (Physics.CheckSphere(groundCheck.position, GroundCheckRadius, groundMask)) _jumpRequested = true;
     }
 
-    void Update() {
+    private void Update() {
         _moveInput = _inputActions.PlayerActionmap.Movement.ReadValue<Vector2>();
-
-        bool isGrounded = Physics.CheckSphere(_groundCheck.position, _groundCheckRadius, _groundMask);
-        if (_animator != null) _animator.SetBool("isJumping", !isGrounded);
+        var isGrounded = Physics.CheckSphere(groundCheck.position, GroundCheckRadius, groundMask);
+        if (animator) animator.SetBool(IsJumping, !isGrounded);
     }
 
-    void FixedUpdate() {
-        bool isRunning = _moveInput.magnitude > 0.1f;
-
+    private void FixedUpdate() {
+        var isRunning = _moveInput.magnitude > 0.1f;
         if (isRunning) {
-            // Project camera axes onto the planet surface plane (perpendicular to player up)
-            Vector3 camForward = Vector3.ProjectOnPlane(_cam.forward, transform.up).normalized;
-            Vector3 camRight = Vector3.ProjectOnPlane(_cam.right, transform.up).normalized;
-
-            // Combine into a single movement direction
-            Vector3 moveDir = (camForward * _moveInput.y + camRight * _moveInput.x).normalized;
-
-            // Move along surface
-            _rigidbody.MovePosition(_rigidbody.position + moveDir * (_speed * Time.fixedDeltaTime));
-
-            // Rotate player body to face movement direction (not camera direction)
-            Quaternion targetRotation = Quaternion.LookRotation(moveDir, transform.up);
-            _rigidbody.MoveRotation(
-                Quaternion.Slerp(_rigidbody.rotation, targetRotation, Time.fixedDeltaTime * _rotationSpeed)
-            );
+            var camForward = Vector3.ProjectOnPlane(cam.forward, transform.up).normalized;
+            var camRight = Vector3.ProjectOnPlane(cam.right, transform.up).normalized;
+            var moveDir = (camForward * _moveInput.y + camRight * _moveInput.x).normalized;
+            _rigidbody.MovePosition(_rigidbody.position + moveDir * (Speed * Time.fixedDeltaTime));
+            if (visualMesh) {
+                var targetRot = Quaternion.LookRotation(moveDir, transform.up);
+                visualMesh.rotation = Quaternion.Slerp(
+                    visualMesh.rotation, targetRot, Time.fixedDeltaTime * VisualRotationSpeed
+                );
+            }
         }
 
         if (_jumpRequested) {
-            _rigidbody.AddForce(-_gravityBody.GravityDirection * _jumpForce, ForceMode.VelocityChange);
+            _rigidbody.AddForce(-_gravityBody.GravityDirection * JumpForce, ForceMode.VelocityChange);
             _jumpRequested = false;
         }
 
-        if (_animator != null) _animator.SetBool("isRunning", isRunning);
+        if (animator) animator.SetBool(IsRunning, isRunning);
     }
 }

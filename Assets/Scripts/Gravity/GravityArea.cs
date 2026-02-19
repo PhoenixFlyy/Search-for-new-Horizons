@@ -2,14 +2,12 @@
 
 [RequireComponent(typeof(Collider))]
 public abstract class GravityArea : MonoBehaviour {
-    [SerializeField] private int _priority;
-    public int Priority => _priority;
+    [SerializeField] private int priority;
+    public int Priority => priority;
 
-    void Start() {
-        transform.GetComponent<Collider>().isTrigger = true;
-    }
+    private void Start() => transform.GetComponent<Collider>().isTrigger = true;
 
-    public abstract Vector3 GetGravityDirection(GravityBody _gravityBody);
+    public abstract Vector3 GetGravityDirection(GravityBody gravityBody);
 
     private void OnTriggerEnter(Collider other) {
         if (other.TryGetComponent(out GravityBody gravityBody)) {

@@ -1,45 +1,41 @@
 ﻿using UnityEngine;
 
 public class CameraController : MonoBehaviour {
-    [SerializeField] private Transform _pivot;
-    [SerializeField] private float _distance = 5f;
-    [SerializeField] private float _sensitivity = 0.1f;
-    [SerializeField] private float _minPitch = -20f;
-    [SerializeField] private float _maxPitch = 60f;
+    [SerializeField] private Transform pivot;
+    [SerializeField] private float distance = 5f;
+    [SerializeField] private float sensitivity = 0.15f;
+    [SerializeField] private float minPitch = -20f;
+    [SerializeField] private float maxPitch = 60f;
 
     private PlayerInputActions _inputActions;
-    private float _yaw;
     private float _pitch = 15f;
+    private Vector3 _camForwardWorld;
 
-    void Awake() {
-        _inputActions = new PlayerInputActions();
-    }
-
-    void OnEnable() {
+    private void Awake() => _inputActions = new PlayerInputActions();
+    private void OnDisable() => _inputActions.Disable();
+    
+    private void OnEnable() {
         _inputActions.Enable();
         Cursor.lockState = CursorLockMode.Locked;
         Cursor.visible = false;
     }
 
-    void OnDisable() {
-        _inputActions.Disable();
-    }
+    private void Start() => _camForwardWorld = pivot.parent.forward;
 
-    void LateUpdate() {
-        Vector2 delta = _inputActions.PlayerActionmap.MouseLook.ReadValue<Vector2>();
-
-        _yaw += delta.x * _sensitivity;
-        _pitch -= delta.y * _sensitivity;
-        _pitch = Mathf.Clamp(_pitch, _minPitch, _maxPitch);
-
-        // Rotate the pivot in local space.
-        // Because CameraPivot is a child of Player, and GravityBody keeps
-        // Player.up = planet surface normal, local Y here IS the surface normal.
-        _pivot.localRotation = Quaternion.Euler(_pitch, _yaw, 0f);
-
-        // Pull camera back behind the pivot and look toward it.
-        // localRotation = identity means the camera's forward = pivot's forward = looks at pivot.
-        transform.localPosition = new Vector3(0f, 0f, -_distance);
+    private void LateUpdate() {
+        var delta = _inputActions.PlayerActionmap.MouseLook.ReadValue<Vector2>();
+        var planetUp = pivot.parent.up;
+        
+        _camForwardWorld = Vector3.ProjectOnPlane(_camForwardWorld, planetUp).normalized;
+        _camForwardWorld = Quaternion.AngleAxis(delta.x * sensitivity, planetUp) * _camForwardWorld;
+        
+        _pitch -= delta.y * sensitivity;
+        _pitch  = Mathf.Clamp(_pitch, minPitch, maxPitch);
+        
+        var yawRot = Quaternion.LookRotation(_camForwardWorld, planetUp);
+        pivot.rotation   = yawRot * Quaternion.Euler(_pitch, 0f, 0f);
+        
+        transform.localPosition = new Vector3(0f, 0f, -distance);
         transform.localRotation = Quaternion.identity;
     }
 }
